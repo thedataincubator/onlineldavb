@@ -19,6 +19,7 @@
 import sys, re, time, string
 import numpy as n
 from scipy.special import gammaln, psi
+import heapq
 
 n.random.seed(100000001)
 meanchangethresh = 0.001
@@ -37,13 +38,13 @@ def parse_doc_list(docs, vocab):
     or parse a set of documents into two lists of lists of word ids
     and counts.
 
-    Arguments: 
+    Arguments:
     docs:  List of D documents. Each document must be represented as
            a single string. (Word order is unimportant.) Any
            words not in the vocabulary will be ignored.
     vocab: Dictionary mapping from words to integer ids.
 
-    Returns a pair of lists of lists. 
+    Returns a pair of lists of lists.
 
     The first, wordids, says what vocabulary tokens are present in
     each document. wordids[i][j] gives the jth unique token present in
@@ -60,7 +61,7 @@ def parse_doc_list(docs, vocab):
         docs = temp
 
     D = len(docs)
-    
+
     wordids = list()
     wordcts = list()
     for d in range(0, D):
@@ -167,7 +168,7 @@ class OnlineLDA:
             Elogthetad = Elogtheta[d, :]
             expElogthetad = expElogtheta[d, :]
             expElogbetad = self._expElogbeta[:, ids]
-            # The optimal phi_{dwk} is proportional to 
+            # The optimal phi_{dwk} is proportional to
             # expElogthetad_k * expElogbetad_w. phinorm is the normalizer.
             phinorm = n.dot(expElogthetad, expElogbetad) + 1e-100
             # Iterate between gamma and phi until convergence
@@ -192,7 +193,7 @@ class OnlineLDA:
 
         # This step finishes computing the sufficient statistics for the
         # M step, so that
-        # sstats[k, w] = \sum_d n_{dw} * phi_{dwk} 
+        # sstats[k, w] = \sum_d n_{dw} * phi_{dwk}
         # = \sum_d n_{dw} * exp{Elogtheta_{dk} + Elogbeta_{kw}} / phinorm_{dw}.
         sstats = sstats * self._expElogbeta
 
@@ -238,6 +239,15 @@ class OnlineLDA:
 
         return(gamma, bound)
 
+    def topic_words(self, n):
+        """
+        return a list of the most prominent n words for each topic
+        """
+        return [
+            heapq.nlargest(n, zip(self._vocab, self._lambda[i, :]), key=lambda x: x[1])
+            for i in xrange(self._lambda.shape[0])
+        ]
+
     def approx_bound(self, docs, gamma):
         """
         Estimates the variational bound over *all documents* using only
@@ -274,11 +284,6 @@ class OnlineLDA:
                 tmax = max(temp)
                 phinorm[i] = n.log(sum(n.exp(temp - tmax))) + tmax
             score += n.sum(cts * phinorm)
-#             oldphinorm = phinorm
-#             phinorm = n.dot(expElogtheta[d, :], self._expElogbeta[:, ids])
-#             print oldphinorm
-#             print n.log(phinorm)
-#             score += n.sum(cts * n.log(phinorm))
 
         # E[log p(theta | alpha) - log q(theta | gamma)]
         score += n.sum((self._alpha - gamma)*Elogtheta)
@@ -291,7 +296,7 @@ class OnlineLDA:
         # E[log p(beta | eta) - log q (beta | lambda)]
         score = score + n.sum((self._eta-self._lambda)*self._Elogbeta)
         score = score + n.sum(gammaln(self._lambda) - gammaln(self._eta))
-        score = score + n.sum(gammaln(self._eta*self._W) - 
+        score = score + n.sum(gammaln(self._eta*self._W) -
                               gammaln(n.sum(self._lambda, 1)))
 
         return(score)

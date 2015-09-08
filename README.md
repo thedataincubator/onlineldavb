@@ -1,6 +1,6 @@
 ONLINE VARIATIONAL BAYES FOR LATENT DIRICHLET ALLOCATION
 
-Matthew D. Hoffman
+Matthew D. Hoffman and Tianhui Michael Li
 mdhoffma@cs.princeton.edu
 
 (C) Copyright 2010, Matthew D. Hoffman
@@ -53,8 +53,23 @@ that Python can find them to use these scripts.
 
 
 Example:
-python onlinewikipedia.py 101
-python printtopics.py dictnostops.txt lambda-100.dat
+```
+import onlineldavb
+import sys
+
+with open("dictnostops.txt") as fh:
+    words = [line.strip() for line in fh.readlines()]
+
+K = 10
+D = 1e9
+BATCH_SIZE = 64
+
+olda = onlineldavb.OnlineLDA(words, K, D, 1./K, 1./K, 1024., 0.7)
+
+for docs in docs_iter:
+    olda.update_lambda(docs)
+    sys.stdout.write("\r" + str(olda.topic_words(5)))
+```
 
 This would run the algorithm for 101 iterations, and display the
 (expected value under the variational posterior of the) topics fit by
